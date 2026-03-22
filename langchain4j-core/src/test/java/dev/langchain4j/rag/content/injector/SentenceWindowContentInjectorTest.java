@@ -42,6 +42,31 @@ class SentenceWindowContentInjectorTest {
     }
 
     @Test
+    void should_inject_surrounding_context_with_userName() {
+
+        // given
+        UserMessage userMessage = UserMessage.from("ape", "What is this about?");
+
+        Metadata metadata = new Metadata().put(SURROUNDING_CONTEXT_KEY, "Before. Target. After.");
+        List<Content> contents = singletonList(Content.from(TextSegment.from("Target.", metadata)));
+
+        ContentInjector injector = SentenceWindowContentInjector.builder().build();
+
+        // when
+        UserMessage injected = (UserMessage) injector.inject(contents, userMessage);
+
+        // then
+        assertThat(injected.singleText())
+                .isEqualTo(
+                        """
+                        What is this about?
+
+                        Answer using the following information:
+                        Before. Target. After.""");
+        assertThat(injected.name()).isEqualTo("ape");
+    }
+
+    @Test
     void should_fallback_to_segment_text_when_no_surrounding_context() {
 
         // given
