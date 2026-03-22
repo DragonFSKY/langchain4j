@@ -4,6 +4,7 @@ import static dev.langchain4j.data.segment.SentenceWindowTextSegmentTransformer.
 import static dev.langchain4j.internal.Utils.getOrDefault;
 import static java.util.stream.Collectors.joining;
 
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
@@ -19,14 +20,20 @@ import java.util.Map;
 /**
  * A {@link ContentInjector} designed to work with {@link SentenceWindowTextSegmentTransformer}.
  * <br>
- * Instead of injecting the original (small) text segment into the prompt, this injector extracts
- * the wider surrounding context stored in the segment's metadata under the key
- * {@value dev.langchain4j.data.segment.SentenceWindowTextSegmentTransformer#SURROUNDING_CONTEXT_KEY},
- * and injects that into the prompt instead.
+ * This implementation appends all given {@link Content}s to the end of the given {@link UserMessage}
+ * in their order of iteration, using the wider surrounding context stored in the segment's
+ * {@link Metadata} under the key
+ * {@value dev.langchain4j.data.segment.SentenceWindowTextSegmentTransformer#SURROUNDING_CONTEXT_KEY}
+ * when available, or the original segment text otherwise.
+ * <br>
+ * Refer to {@link #DEFAULT_PROMPT_TEMPLATE} and implementation for more details.
  * <br>
  * <br>
- * If a segment does not have surrounding context in its metadata (e.g., it was not processed by
- * {@link SentenceWindowTextSegmentTransformer}), the original segment text is used as a fallback.
+ * Configurable parameters (optional):
+ * <br>
+ * - {@link #promptTemplate}: The prompt template that defines how the original {@code userMessage}
+ * and {@code contents} are combined into the resulting {@link UserMessage}.
+ * The text of the template should contain the {@code {{userMessage}}} and {@code {{contents}}} variables.
  * <br>
  * <br>
  * Example usage:
@@ -73,13 +80,7 @@ public class SentenceWindowContentInjector implements ContentInjector {
             return chatMessage;
         }
 
-        String formattedContents = contents.stream().map(this::extractContext).collect(joining("\n\n"));
-
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("userMessage", ((UserMessage) chatMessage).singleText());
-        variables.put("contents", formattedContents);
-
-        Prompt prompt = promptTemplate.apply(variables);
+        Prompt prompt = createPrompt(chatMessage, contents);
         if (chatMessage instanceof UserMessage userMessage) {
             return userMessage.toBuilder()
                     .contents(List.of(TextContent.from(prompt.text())))
@@ -89,7 +90,18 @@ public class SentenceWindowContentInjector implements ContentInjector {
         }
     }
 
-    private String extractContext(Content content) {
+    private Prompt createPrompt(ChatMessage chatMessage, List<Content> contents) {
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("userMessage", ((UserMessage) chatMessage).singleText());
+        variables.put("contents", format(contents));
+        return promptTemplate.apply(variables);
+    }
+
+    private String format(List<Content> contents) {
+        return contents.stream().map(this::format).collect(joining("\n\n"));
+    }
+
+    private String format(Content content) {
         TextSegment segment = content.textSegment();
         String surroundingContext = segment.metadata().getString(SURROUNDING_CONTEXT_KEY);
         if (surroundingContext != null) {
