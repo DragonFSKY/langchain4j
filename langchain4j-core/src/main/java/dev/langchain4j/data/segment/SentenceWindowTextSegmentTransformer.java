@@ -117,20 +117,20 @@ public class SentenceWindowTextSegmentTransformer implements TextSegmentTransfor
     }
 
     /**
-     * Creates a new {@link Builder}.
+     * Creates a new {@link SentenceWindowTextSegmentTransformerBuilder}.
      *
      * @return a new builder instance.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static SentenceWindowTextSegmentTransformerBuilder builder() {
+        return new SentenceWindowTextSegmentTransformerBuilder();
     }
 
-    public static class Builder {
+    public static class SentenceWindowTextSegmentTransformerBuilder {
 
         private int segmentsBefore = 1;
         private int segmentsAfter = 1;
 
-        Builder() {}
+        SentenceWindowTextSegmentTransformerBuilder() {}
 
         /**
          * Sets the number of preceding segments to include in the surrounding context.
@@ -139,7 +139,7 @@ public class SentenceWindowTextSegmentTransformer implements TextSegmentTransfor
          * @param segmentsBefore the number of preceding segments; must not be negative.
          * @return this builder.
          */
-        public Builder segmentsBefore(int segmentsBefore) {
+        public SentenceWindowTextSegmentTransformerBuilder segmentsBefore(int segmentsBefore) {
             this.segmentsBefore = segmentsBefore;
             return this;
         }
@@ -151,7 +151,7 @@ public class SentenceWindowTextSegmentTransformer implements TextSegmentTransfor
          * @param segmentsAfter the number of following segments; must not be negative.
          * @return this builder.
          */
-        public Builder segmentsAfter(int segmentsAfter) {
+        public SentenceWindowTextSegmentTransformerBuilder segmentsAfter(int segmentsAfter) {
             this.segmentsAfter = segmentsAfter;
             return this;
         }

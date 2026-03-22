@@ -111,19 +111,19 @@ public class SentenceWindowContentInjector implements ContentInjector {
     }
 
     /**
-     * Creates a new {@link Builder}.
+     * Creates a new {@link SentenceWindowContentInjectorBuilder}.
      *
      * @return a new builder instance.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static SentenceWindowContentInjectorBuilder builder() {
+        return new SentenceWindowContentInjectorBuilder();
     }
 
-    public static class Builder {
+    public static class SentenceWindowContentInjectorBuilder {
 
         private PromptTemplate promptTemplate;
 
-        Builder() {}
+        SentenceWindowContentInjectorBuilder() {}
 
         /**
          * Sets the prompt template to use.
@@ -132,7 +132,7 @@ public class SentenceWindowContentInjector implements ContentInjector {
          * @param promptTemplate the prompt template; may be {@code null} to use the default.
          * @return this builder.
          */
-        public Builder promptTemplate(PromptTemplate promptTemplate) {
+        public SentenceWindowContentInjectorBuilder promptTemplate(PromptTemplate promptTemplate) {
             this.promptTemplate = promptTemplate;
             return this;
         }
