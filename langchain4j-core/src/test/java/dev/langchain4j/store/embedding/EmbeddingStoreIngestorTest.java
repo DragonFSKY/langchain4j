@@ -19,6 +19,7 @@ import dev.langchain4j.data.segment.TextSegmentTransformer;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
 import dev.langchain4j.model.output.TokenUsage;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class EmbeddingStoreIngestorTest {
@@ -191,5 +192,35 @@ class EmbeddingStoreIngestorTest {
         verifyNoMoreInteractions(embeddingStore);
 
         assertThat(ingestionResult.tokenUsage()).isEqualTo(tokenUsage);
+    }
+
+    @Test
+    void should_skip_embedding_and_storage_when_all_segments_are_filtered_out() {
+
+        // given
+        Document document = Document.from("Some text");
+
+        TextSegmentTransformer textSegmentTransformer = mock(TextSegmentTransformer.class);
+        when(textSegmentTransformer.transformAll(singletonList(TextSegment.from("Some text", Metadata.from("index", "0")))))
+                .thenReturn(List.of());
+
+        EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
+        EmbeddingStore<TextSegment> embeddingStore = mock(EmbeddingStore.class);
+
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+                .textSegmentTransformer(textSegmentTransformer)
+                .embeddingModel(embeddingModel)
+                .embeddingStore(embeddingStore)
+                .build();
+
+        // when
+        IngestionResult ingestionResult = ingestor.ingest(document);
+
+        // then
+        assertThat(ingestionResult.tokenUsage()).isEqualTo(new TokenUsage());
+        verify(textSegmentTransformer).transformAll(singletonList(TextSegment.from("Some text", Metadata.from("index", "0"))));
+        verifyNoMoreInteractions(textSegmentTransformer);
+        verifyNoMoreInteractions(embeddingModel);
+        verifyNoMoreInteractions(embeddingStore);
     }
 }

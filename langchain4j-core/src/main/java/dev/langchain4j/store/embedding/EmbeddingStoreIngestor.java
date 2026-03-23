@@ -15,6 +15,7 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.data.segment.TextSegmentTransformer;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.spi.data.document.splitter.DocumentSplitterFactory;
 import dev.langchain4j.spi.model.embedding.EmbeddingModelFactory;
 import java.util.Collection;
@@ -49,7 +50,6 @@ import org.slf4j.LoggerFactory;
  * to improve the quality of similarity searches.
  */
 public class EmbeddingStoreIngestor {
-
     private static final Logger log = LoggerFactory.getLogger(EmbeddingStoreIngestor.class);
 
     private final DocumentTransformer documentTransformer;
@@ -175,9 +175,7 @@ public class EmbeddingStoreIngestor {
      * @return result including information related to ingestion process.
      */
     public IngestionResult ingest(List<Document> documents) {
-
         log.debug("Starting to ingest {} documents", documents.size());
-
         if (documentTransformer != null) {
             documents = documentTransformer.transformAll(documents);
             log.debug("Documents were transformed into {} documents", documents.size());
@@ -193,15 +191,16 @@ public class EmbeddingStoreIngestor {
             segments = textSegmentTransformer.transformAll(segments);
             log.debug("{} documents were transformed into {} text segments", documents.size(), segments.size());
         }
-
+        if (segments.isEmpty()) {
+            log.debug("No text segments left after preprocessing; skipping embedding and storage");
+            return new IngestionResult(new TokenUsage());
+        }
         log.debug("Starting to embed {} text segments", segments.size());
         Response<List<Embedding>> embeddingsResponse = embeddingModel.embedAll(segments);
         log.debug("Finished embedding {} text segments", segments.size());
-
         log.debug("Starting to store {} text segments into the embedding store", segments.size());
         embeddingStore.addAll(embeddingsResponse.content(), segments);
         log.debug("Finished storing {} text segments into the embedding store", segments.size());
-
         return new IngestionResult(embeddingsResponse.tokenUsage());
     }
 
@@ -295,8 +294,7 @@ public class EmbeddingStoreIngestor {
          * @return the EmbeddingStoreIngestor.
          */
         public EmbeddingStoreIngestor build() {
-            return new EmbeddingStoreIngestor(
-                    documentTransformer, documentSplitter, textSegmentTransformer, embeddingModel, embeddingStore);
+            return new EmbeddingStoreIngestor(documentTransformer, documentSplitter, textSegmentTransformer, embeddingModel, embeddingStore);
         }
     }
 }
