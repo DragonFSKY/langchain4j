@@ -58,7 +58,7 @@ class BaseGeminiChatModel {
     protected final GeminiGenerationConfig.GeminiImageConfig imageConfig;
     protected final String cachedContentName;
 
-    protected final ChatRequestParameters defaultRequestParameters;
+    protected final GoogleAiGeminiChatRequestParameters defaultRequestParameters;
 
     protected BaseGeminiChatModel(GoogleAiGeminiChatModelBaseBuilder<?> builder, GeminiService geminiService) {
         this.geminiService = geminiService;
@@ -81,29 +81,38 @@ class BaseGeminiChatModel {
         this.logprobs = builder.logprobs;
         this.mediaResolution = builder.mediaResolution;
         this.mediaResolutionPerPartEnabled = getOrDefault(builder.mediaResolutionPerPartEnabled, false);
-        this.imageConfig = buildImageConfig(builder.aspectRatio, builder.imageSize);
         this.cachedContentName = builder.cachedContentName;
 
-        ChatRequestParameters parameters;
+        ChatRequestParameters commonParameters;
         if (builder.defaultRequestParameters != null) {
-            parameters = builder.defaultRequestParameters;
+            commonParameters = builder.defaultRequestParameters;
         } else {
-            parameters = DefaultChatRequestParameters.EMPTY;
+            commonParameters = DefaultChatRequestParameters.EMPTY;
         }
 
-        this.defaultRequestParameters = ChatRequestParameters.builder()
-                .modelName(getOrDefault(builder.modelName, parameters.modelName()))
-                .temperature(getOrDefault(builder.temperature, parameters.temperature()))
-                .topP(getOrDefault(builder.topP, parameters.topP()))
-                .topK(getOrDefault(builder.topK, parameters.topK()))
-                .frequencyPenalty(getOrDefault(builder.frequencyPenalty, parameters.frequencyPenalty()))
-                .presencePenalty(getOrDefault(builder.presencePenalty, parameters.presencePenalty()))
-                .maxOutputTokens(getOrDefault(builder.maxOutputTokens, parameters.maxOutputTokens()))
-                .stopSequences(getOrDefault(builder.stopSequences, parameters.stopSequences()))
-                .toolSpecifications(parameters.toolSpecifications())
-                .toolChoice(getOrDefault(toToolChoice(functionCallingConfig), parameters.toolChoice()))
-                .responseFormat(getOrDefault(builder.responseFormat, parameters.responseFormat()))
+        GoogleAiGeminiChatRequestParameters geminiParameters =
+                builder.defaultRequestParameters instanceof GoogleAiGeminiChatRequestParameters geminiChatParameters
+                        ? geminiChatParameters
+                        : GoogleAiGeminiChatRequestParameters.EMPTY;
+
+        this.defaultRequestParameters = GoogleAiGeminiChatRequestParameters.builder()
+                .modelName(getOrDefault(builder.modelName, commonParameters.modelName()))
+                .temperature(getOrDefault(builder.temperature, commonParameters.temperature()))
+                .topP(getOrDefault(builder.topP, commonParameters.topP()))
+                .topK(getOrDefault(builder.topK, commonParameters.topK()))
+                .frequencyPenalty(getOrDefault(builder.frequencyPenalty, commonParameters.frequencyPenalty()))
+                .presencePenalty(getOrDefault(builder.presencePenalty, commonParameters.presencePenalty()))
+                .maxOutputTokens(getOrDefault(builder.maxOutputTokens, commonParameters.maxOutputTokens()))
+                .stopSequences(getOrDefault(builder.stopSequences, commonParameters.stopSequences()))
+                .toolSpecifications(commonParameters.toolSpecifications())
+                .toolChoice(getOrDefault(toToolChoice(functionCallingConfig), commonParameters.toolChoice()))
+                .responseFormat(getOrDefault(builder.responseFormat, commonParameters.responseFormat()))
+                .imageAspectRatio(getOrDefault(builder.aspectRatio, geminiParameters.imageAspectRatio()))
+                .imageSize(getOrDefault(builder.imageSize, geminiParameters.imageSize()))
                 .build();
+
+        this.imageConfig = buildImageConfig(
+                this.defaultRequestParameters.imageAspectRatio(), this.defaultRequestParameters.imageSize());
     }
 
     protected static GeminiService buildGeminiService(GoogleAiGeminiChatModelBaseBuilder<?> builder) {
@@ -121,6 +130,7 @@ class BaseGeminiChatModel {
 
     protected GeminiGenerateContentRequest createGenerateContentRequest(ChatRequest chatRequest) {
         ChatRequestParameters parameters = chatRequest.parameters();
+        GeminiGenerationConfig.GeminiImageConfig imageConfig = resolveImageConfig(parameters);
 
         GeminiContent systemInstruction = new GeminiContent(List.of(), GeminiRole.MODEL.toString());
         List<GeminiContent> geminiContentList = fromMessageToGContent(
@@ -160,7 +170,7 @@ class BaseGeminiChatModel {
                         .logprobs(logprobs)
                         .thinkingConfig(this.thinkingConfig)
                         .mediaResolution(this.mediaResolution)
-                        .imageConfig(this.imageConfig)
+                        .imageConfig(imageConfig)
                         .build())
                 .safetySettings(this.safetySettings)
                 .tools(fromToolSpecsToGTools(
@@ -237,6 +247,21 @@ class BaseGeminiChatModel {
                 .aspectRatio(aspectRatio)
                 .imageSize(imageSize)
                 .build();
+    }
+
+    private GeminiGenerationConfig.GeminiImageConfig resolveImageConfig(ChatRequestParameters parameters) {
+        if (!(parameters instanceof GoogleAiGeminiChatRequestParameters geminiParameters)) {
+            return this.imageConfig;
+        }
+
+        String imageAspectRatio = getOrDefault(
+                geminiParameters.imageAspectRatio(),
+                this.imageConfig == null ? null : this.imageConfig.aspectRatio());
+        String imageSize = getOrDefault(
+                geminiParameters.imageSize(),
+                this.imageConfig == null ? null : this.imageConfig.imageSize());
+
+        return buildImageConfig(imageAspectRatio, imageSize);
     }
 
     protected ChatResponse processResponse(GeminiGenerateContentResponse geminiResponse) {

@@ -48,3 +48,4 @@ CLAUDE.md
 .quarkus
 
 jdk/
+.gitignore fix
